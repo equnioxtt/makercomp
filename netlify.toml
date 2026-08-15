@@ -14,3 +14,9 @@
 
 [functions]
   node_bundler = "esbuild"
+  # libsql loads a platform-specific native binary (e.g. @libsql/linux-x64-gnu)
+  # at runtime; esbuild's static bundling can't see that dynamic require and
+  # drops it from the deploy zip, causing "Cannot find module" in production
+  # even though it works locally (netlify dev runs against full node_modules,
+  # not the bundled artifact). Keep it external so it ships as-is.
+  external_node_modules = ["@libsql/client", "libsql"]

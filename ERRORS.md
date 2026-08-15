@@ -55,4 +55,12 @@ Format per entry:
 
 ---
 
+## 2026-08-15 — production 502: esbuild dropped libsql's native binary
+**Area:** netlify.toml, all functions using lib/db.js
+**Tried:** Deployed with `node_bundler = "esbuild"` and no further config, same as local `netlify dev`.
+**Failed because:** `@libsql/client` resolves a platform-specific native addon (`@libsql/linux-x64-gnu` on Netlify's Lambda runtime) via a dynamic require at runtime. esbuild statically bundles each function into one file and can't see that dynamic require, so it silently dropped the native module from the deploy zip. Every function touching the DB returned 502 `Cannot find module '@libsql/linux-x64-gnu'` in production, even though it worked fine locally — `netlify dev` runs functions straight off disk with the full `node_modules` present, so the bundling step (and this bug) never happens there. Local testing alone couldn't have caught this.
+**Fix:** Added `external_node_modules = ["@libsql/client", "libsql"]` under `[functions]` in netlify.toml — tells esbuild to leave those packages alone and ship them as normal `node_modules`, preserving the dynamic native-binary resolution.
+
+---
+
 (no other entries yet)
