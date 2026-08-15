@@ -63,4 +63,12 @@ Format per entry:
 
 ---
 
+## 2026-08-15 — burned through free-tier quota, "Inactivity Timeout" was a proxy artifact
+**Area:** lib/gemini.js
+**Tried:** Default `gemini-flash-latest`, which resolves to `gemini-3.7-flash`.
+**Failed because:** That model's free tier only allows 20 requests before returning `429 Too Many Requests`, which testing (mine and the user's) burned through quickly. The user saw a browser "Inactivity Timeout" page — that's their network's proxy giving up while a slow/retried request sat waiting, not an error from Gemini or this app; the real cause underneath was the 429.
+**Fix:** Default model changed to `gemini-flash-lite-latest`, which has a more generous free-tier cap. Also added an explicit 429 case to `describeGeminiError()` so a quota exhaustion reads differently from a transient 503 overload in the UI.
+
+---
+
 (no other entries yet)
