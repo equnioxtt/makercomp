@@ -71,4 +71,12 @@ Format per entry:
 
 ---
 
+## 2026-08-15 — added Groq fallback (not a bug, noting the design decision)
+**Area:** lib/ai.js (renamed from lib/gemini.js), all three AI-calling functions
+**Context:** After repeatedly hitting Gemini free-tier limits (503 overload, 429 quota), added Groq as an automatic fallback rather than just tuning Gemini further.
+**How it works:** `generateStructured()` tries Gemini first (keeps its schema-enum grounding, the strongest guarantee against hallucinated part ids). Only on failure — and only if `GROQ_API_KEY` is set — does it retry the same prompt against Groq. Groq has no equivalent to Gemini's `responseSchema` enum constraint, so for suggest-parts specifically the existing `catalogById.has(s.partId)` post-filter is now the only thing grounding part selection on that path — verified it still runs regardless of which provider answered.
+**Verified:** forced Gemini to fail with a bad key locally — confirmed it fell back to Groq and returned valid JSON; confirmed Gemini is still preferred when healthy; confirmed the combined error message when both fail.
+
+---
+
 (no other entries yet)

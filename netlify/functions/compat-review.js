@@ -1,7 +1,7 @@
 const { getClient } = require('../../lib/db');
 const { json, parseBody } = require('../../lib/http');
 const { getProjectDetail } = require('../../lib/project');
-const { getGemini, DEFAULT_MODEL, SchemaType, generateJSON, describeGeminiError } = require('../../lib/gemini');
+const { getGemini, getGroq, SchemaType, generateStructured, describeAIError } = require('../../lib/ai');
 
 // This is a *supplementary* review on top of the deterministic hard checks
 // (duplicate GPIO pins, missing ADC module) already computed in lib/compat.js
@@ -10,6 +10,9 @@ const { getGemini, DEFAULT_MODEL, SchemaType, generateJSON, describeGeminiError 
 // suited to: voltage mismatches, rough current-budget sanity, etc. It's
 // explicitly instructed to only reason from the stored fields, not invent
 // specs the catalog doesn't have.
+const SYSTEM_INSTRUCTION =
+  'You are an electronics compatibility reviewer. You only reason from the exact fields provided to you; you never invent or assume a value that is marked as missing.';
+
 const RESPONSE_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
@@ -27,6 +30,8 @@ const RESPONSE_SCHEMA = {
   },
   required: ['notes'],
 };
+
+const JSON_SHAPE_HINT = '{"notes": [{"severity": "info"|"caution"|"issue", "message": "<string>"}, ...]}';
 
 function buildPrompt(project) {
   const partsBlock = project.parts
@@ -64,28 +69,24 @@ exports.handler = async (event) => {
     return json(200, { notes: [] });
   }
 
-  const genAI = getGemini();
-  if (!genAI) {
+  if (!getGemini() && !getGroq()) {
     return json(500, {
-      error: 'GEMINI_API_KEY is not configured on the server. Set it as a Netlify environment variable to enable compatibility review.',
+      error: 'Neither GEMINI_API_KEY nor GROQ_API_KEY is configured on the server. Set at least one as a Netlify environment variable to enable compatibility review.',
     });
   }
 
   let parsed;
   try {
-    const model = genAI.getGenerativeModel({
-      model: DEFAULT_MODEL,
-      systemInstruction:
-        'You are an electronics compatibility reviewer. You only reason from the exact fields provided to you; you never invent or assume a value that is marked as missing.',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: RESPONSE_SCHEMA,
-      },
+    const result = await generateStructured({
+      systemInstruction: SYSTEM_INSTRUCTION,
+      prompt: buildPrompt(project),
+      geminiSchema: RESPONSE_SCHEMA,
+      jsonShapeHint: JSON_SHAPE_HINT,
     });
-    parsed = await generateJSON(model, buildPrompt(project));
+    parsed = result.data;
   } catch (err) {
-    console.error('Gemini API error (compat-review):', err);
-    return json(502, { error: describeGeminiError(err), detail: err.message || String(err) });
+    console.error('AI error (compat-review):', err);
+    return json(502, { error: describeAIError(err), detail: err.message || String(err) });
   }
 
   return json(200, { notes: parsed.notes || [] });

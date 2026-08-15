@@ -2,7 +2,10 @@ const crypto = require('crypto');
 const { getClient } = require('../../lib/db');
 const { json, parseBody } = require('../../lib/http');
 const { getProjectDetail } = require('../../lib/project');
-const { getGemini, DEFAULT_MODEL, SchemaType, generateJSON, describeGeminiError } = require('../../lib/gemini');
+const { getGemini, getGroq, SchemaType, generateStructured, describeAIError } = require('../../lib/ai');
+
+const SYSTEM_INSTRUCTION =
+  'You are a careful embedded-systems assistant generating Raspberry Pi GPIO code. You never fabricate library names, import paths, or pin numbers — you only use what is explicitly given to you.';
 
 const RESPONSE_SCHEMA = {
   type: SchemaType.OBJECT,
@@ -17,6 +20,8 @@ const RESPONSE_SCHEMA = {
   },
   required: ['code', 'summary'],
 };
+
+const JSON_SHAPE_HINT = '{"code": "<string, python code or empty string>", "summary": "<string>", "unresolved": ["<string>", ...]}';
 
 function buildPrompt(project) {
   const partsBlock = project.parts
@@ -61,28 +66,25 @@ exports.handler = async (event) => {
     return json(400, { error: 'This project has no parts assigned yet — assign parts and pins before generating code.' });
   }
 
-  const genAI = getGemini();
-  if (!genAI) {
+  if (!getGemini() && !getGroq()) {
     return json(500, {
-      error: 'GEMINI_API_KEY is not configured on the server. Set it as a Netlify environment variable to enable code generation.',
+      error: 'Neither GEMINI_API_KEY nor GROQ_API_KEY is configured on the server. Set at least one as a Netlify environment variable to enable code generation.',
     });
   }
 
-  let parsed;
+  let parsed, provider;
   try {
-    const model = genAI.getGenerativeModel({
-      model: DEFAULT_MODEL,
-      systemInstruction:
-        'You are a careful embedded-systems assistant generating Raspberry Pi GPIO code. You never fabricate library names, import paths, or pin numbers — you only use what is explicitly given to you.',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: RESPONSE_SCHEMA,
-      },
+    const result = await generateStructured({
+      systemInstruction: SYSTEM_INSTRUCTION,
+      prompt: buildPrompt(project),
+      geminiSchema: RESPONSE_SCHEMA,
+      jsonShapeHint: JSON_SHAPE_HINT,
     });
-    parsed = await generateJSON(model, buildPrompt(project));
+    parsed = result.data;
+    provider = result.provider;
   } catch (err) {
-    console.error('Gemini API error (generate-code):', err);
-    return json(502, { error: describeGeminiError(err), detail: err.message || String(err) });
+    console.error('AI error (generate-code):', err);
+    return json(502, { error: describeAIError(err), detail: err.message || String(err) });
   }
 
   const { code, summary, unresolved } = parsed;
@@ -102,5 +104,6 @@ exports.handler = async (event) => {
     unresolved: unresolved || [],
     verified: false,
     createdAt: now,
+    provider,
   });
 };

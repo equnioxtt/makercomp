@@ -7,7 +7,7 @@ Personal web app for tracking Raspberry Pi electronics projects: parts inventory
 - **Frontend:** static HTML/CSS/vanilla JS, served from `public/`
 - **Backend:** Netlify Functions (`netlify/functions/`) — stateless, one file per resource
 - **Data:** Turso (SQLite-compatible, serverless-friendly). Falls back to a local file DB (`db/local.db`) when `TURSO_DATABASE_URL` isn't set, so `netlify dev` works with no cloud setup.
-- **AI:** Gemini API (`gemini-flash-latest`), called server-side only — the key never reaches the client.
+- **AI:** Gemini API (`gemini-flash-lite-latest`) as primary, with automatic fallback to Groq (`llama-3.3-70b-versatile`) if Gemini fails — both called server-side only, keys never reach the client.
 
 ## Setup
 
@@ -18,6 +18,7 @@ cp .env.example .env
 
 Fill in `.env`:
 - `GEMINI_API_KEY` — free key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- `GROQ_API_KEY` — optional fallback, free key from [console.groq.com/keys](https://console.groq.com/keys). Used automatically if Gemini fails; at least one of the two keys is required for the AI features
 - `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` — optional for local dev; leave blank to use the local file DB
 
 Then set up the database and run:
@@ -30,14 +31,14 @@ npm run dev        # netlify dev, http://localhost:8888
 
 ## Deploying to Netlify
 
-Set `GEMINI_API_KEY`, `TURSO_DATABASE_URL`, and `TURSO_AUTH_TOKEN` as environment variables in the Netlify site settings (never commit them). Netlify picks up `netlify.toml` automatically for the functions dir, publish dir, and the `/api/*` redirect.
+Set `GEMINI_API_KEY` (and optionally `GROQ_API_KEY`), `TURSO_DATABASE_URL`, and `TURSO_AUTH_TOKEN` as environment variables in the Netlify site settings — exact key names matter, they're case-sensitive (never commit these). Netlify picks up `netlify.toml` automatically for the functions dir, publish dir, and the `/api/*` redirect.
 
 ## Project structure
 
 ```
 public/               static frontend (index.html, css/, js/)
 netlify/functions/    API routes (parts, projects, project-parts, to-buy, suggest-parts, generate-code, compat-review, snippets)
-lib/                  shared server code (db client, schema, compatibility rules, Gemini client)
+lib/                  shared server code (db client, schema, compatibility rules, AI provider client)
 db/                   migration + seed scripts, seed data
 ERRORS.md             running log of bugs found and how they were fixed — check before touching an area it covers
 ```

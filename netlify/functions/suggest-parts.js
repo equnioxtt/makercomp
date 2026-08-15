@@ -1,14 +1,19 @@
 const { getClient } = require('../../lib/db');
 const { json, parseBody } = require('../../lib/http');
 const { getProjectDetail } = require('../../lib/project');
-const { getGemini, DEFAULT_MODEL, SchemaType, generateJSON, describeGeminiError } = require('../../lib/gemini');
+const { getGemini, getGroq, SchemaType, generateStructured, describeAIError } = require('../../lib/ai');
+
+const SYSTEM_INSTRUCTION =
+  'You are an electronics project planner. You only ever recommend parts from the exact catalog you are given, by their exact id. You never invent a part, a library, or a price.';
 
 // Suggests which catalog parts + GPIO pins a described build needs. Part
 // selection is grounded by constraining the response schema's partId to an
 // enum of the actual catalog ids — Gemini can only pick parts that exist,
-// it can't hallucinate one into existence. Anything the description needs
-// that isn't in the catalog comes back as a plain-text "gap" instead, so we
-// never fabricate a part record (name/library/price) that wasn't looked up.
+// it can't hallucinate one into existence. Groq has no equivalent schema
+// enum, so for that path the post-filter below (catalogById.has) is the
+// only thing standing between a hallucinated id and the response — keep it.
+// Anything the description needs that isn't in the catalog comes back as a
+// plain-text "gap" instead, so we never fabricate a part record.
 function buildResponseSchema(catalogIds) {
   return {
     type: SchemaType.OBJECT,
@@ -37,6 +42,10 @@ function buildResponseSchema(catalogIds) {
     },
     required: ['approach', 'suggestions', 'gaps'],
   };
+}
+
+function buildJsonShapeHint(catalogIds) {
+  return `{"approach": "<string>", "suggestions": [{"partId": "<MUST be one of: ${catalogIds.join(', ')}>", "gpioPin": "<string, can be empty>", "reason": "<string>"}, ...], "gaps": ["<string>", ...]}`;
 }
 
 function buildPrompt(description, project, catalog) {
@@ -85,28 +94,25 @@ exports.handler = async (event) => {
     return json(400, { error: 'The parts catalog is empty — add parts before asking for suggestions.' });
   }
 
-  const genAI = getGemini();
-  if (!genAI) {
+  if (!getGemini() && !getGroq()) {
     return json(500, {
-      error: 'GEMINI_API_KEY is not configured on the server. Set it as a Netlify environment variable to enable part suggestions.',
+      error: 'Neither GEMINI_API_KEY nor GROQ_API_KEY is configured on the server. Set at least one as a Netlify environment variable to enable part suggestions.',
     });
   }
 
+  const catalogIds = catalog.map((p) => p.id);
   let parsed;
   try {
-    const model = genAI.getGenerativeModel({
-      model: DEFAULT_MODEL,
-      systemInstruction:
-        'You are an electronics project planner. You only ever recommend parts from the exact catalog you are given, by their exact id. You never invent a part, a library, or a price.',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: buildResponseSchema(catalog.map((p) => p.id)),
-      },
+    const result = await generateStructured({
+      systemInstruction: SYSTEM_INSTRUCTION,
+      prompt: buildPrompt(description, project, catalog),
+      geminiSchema: buildResponseSchema(catalogIds),
+      jsonShapeHint: buildJsonShapeHint(catalogIds),
     });
-    parsed = await generateJSON(model, buildPrompt(description, project, catalog));
+    parsed = result.data;
   } catch (err) {
-    console.error('Gemini API error (suggest-parts):', err);
-    return json(502, { error: describeGeminiError(err), detail: err.message || String(err) });
+    console.error('AI error (suggest-parts):', err);
+    return json(502, { error: describeAIError(err), detail: err.message || String(err) });
   }
 
   const catalogById = new Map(catalog.map((p) => [p.id, p]));

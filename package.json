@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@libsql/client": "^0.14.0"
+    "@libsql/client": "^0.14.0",
+    "groq-sdk": "^1.5.0"
   },
   "devDependencies": {
     "dotenv": "^16.4.5",
