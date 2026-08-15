@@ -1,0 +1,8 @@
+node_modules/
+.netlify/
+.env
+.env.local
+*.db
+*.db-*
+*.sqlite
+db/local.db

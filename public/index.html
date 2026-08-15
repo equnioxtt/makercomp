@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Maker Companion</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Maker Companion</div>
+    <nav class="tabs">
+      <a href="#/projects" data-route="projects">Projects</a>
+      <a href="#/catalog" data-route="catalog">Parts Catalog</a>
+      <a href="#/to-buy" data-route="to-buy">To Buy</a>
+    </nav>
+  </header>
+
+  <main id="app" class="app"></main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/views/projects.js"></script>
+  <script src="js/views/project-detail.js"></script>
+  <script src="js/views/catalog.js"></script>
+  <script src="js/views/to-buy.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

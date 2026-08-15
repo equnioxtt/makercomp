@@ -1,0 +1,22 @@
+{
+  "name": "maker-companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal web app for managing Raspberry Pi electronics projects: parts inventory, wiring/GPIO assignments, compatibility checks, and Gemini-generated code.",
+  "scripts": {
+    "dev": "netlify dev",
+    "db:migrate": "node db/migrate.js",
+    "db:seed": "node db/seed.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@libsql/client": "^0.14.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5",
+    "netlify-cli": "^17.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
