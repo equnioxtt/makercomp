@@ -79,4 +79,12 @@ Format per entry:
 
 ---
 
+## 2026-08-17 — cautions named the risk but not the fix
+**Area:** netlify/functions/wiring-guide.js, netlify/functions/compat-review.js
+**Tried:** Prompts asked for a "caution" describing voltage mismatches/current issues, with no instruction on what to do about them.
+**Failed because:** Output like "the relay operates at 5V, which exceeds the Pi's 3.3V logic — direct connection can damage the Pi" tells the user there's a problem but not how to solve it, which isn't very useful for someone who doesn't already know the fix.
+**Fix:** Both system instructions and prompts now explicitly require every "caution"/"issue" to end with a concrete suggested fix — a generic component category (e.g. "a bidirectional logic level shifter") is fine, but never a specific product/brand/price, keeping the no-fabrication guardrail intact.
+
+---
+
 (no other entries yet)

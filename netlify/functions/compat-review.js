@@ -11,7 +11,7 @@ const { getGemini, getGroq, SchemaType, generateStructured, describeAIError } = 
 // explicitly instructed to only reason from the stored fields, not invent
 // specs the catalog doesn't have.
 const SYSTEM_INSTRUCTION =
-  'You are an electronics compatibility reviewer. You only reason from the exact fields provided to you; you never invent or assume a value that is marked as missing.';
+  'You are an electronics compatibility reviewer. You only reason from the exact fields provided to you; you never invent or assume a value that is marked as missing. Every "caution" or "issue" note must end with a concrete suggested fix, not just a description of the risk — a generic component category (e.g. "a bidirectional logic level shifter", "a separate 5V power supply for the motor") is fine, but never a specific product, brand, or price.';
 
 const RESPONSE_SCHEMA = {
   type: SchemaType.OBJECT,
@@ -22,7 +22,10 @@ const RESPONSE_SCHEMA = {
         type: SchemaType.OBJECT,
         properties: {
           severity: { type: SchemaType.STRING, enum: ['info', 'caution', 'issue'] },
-          message: { type: SchemaType.STRING },
+          message: {
+            type: SchemaType.STRING,
+            description: 'For severity "caution" or "issue", end the message with a concrete suggested fix, not just the risk. "info" notes don\'t need one.',
+          },
         },
         required: ['severity', 'message'],
       },
@@ -53,7 +56,7 @@ ${partsBlock || '(none)'}
 
 Deterministic checks already caught: duplicate GPIO pins (hard error, already rejected before parts can be assigned) and missing ADC modules for analog parts (already flagged separately).
 
-Review the parts list above for anything else worth flagging: voltage mismatches between parts and the board's 3.3V GPIO logic, rough total current draw vs typical Pi GPIO/USB power budgets, or missing power-handling components (e.g. a motor with no separate driver/relay). Only reason from the fields given above — if voltage or current draw is "not recorded" for a part, say the data is missing rather than guessing a typical value for that part.`;
+Review the parts list above for anything else worth flagging: voltage mismatches between parts and the board's 3.3V GPIO logic, rough total current draw vs typical Pi GPIO/USB power budgets, or missing power-handling components (e.g. a motor with no separate driver/relay). Only reason from the fields given above — if voltage or current draw is "not recorded" for a part, say the data is missing rather than guessing a typical value for that part. For every "caution" or "issue" note, end it with what to actually do about it — e.g. a type of protective component to add, or checking the part's datasheet for a 3.3V-compatible mode before assuming a fix is even needed.`;
 }
 
 exports.handler = async (event) => {

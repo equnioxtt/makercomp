@@ -5,7 +5,7 @@ const { getGemini, getGroq, SchemaType, generateStructured, describeAIError } = 
 const { pinMapReference } = require('../../lib/pinmap');
 
 const SYSTEM_INSTRUCTION =
-  "You explain electronics wiring to a beginner in plain, concrete language — no jargon without explanation, no skipped steps. You only state a physical pin number if it's listed in the reference table you're given; you never guess one from memory. You only reason about voltage from the value given for each part; if it's not recorded, say so instead of assuming 3.3V or 5V.";
+  "You explain electronics wiring to a beginner in plain, concrete language — no jargon without explanation, no skipped steps. You only state a physical pin number if it's listed in the reference table you're given; you never guess one from memory. You only reason about voltage from the value given for each part; if it's not recorded, say so instead of assuming 3.3V or 5V. Every caution you raise must end with a concrete suggested fix (a generic component category like 'a bidirectional logic level shifter' is fine — never a specific product, brand, or price) — never just name a risk and stop there.";
 
 function buildResponseSchema(projectPartIds) {
   return {
@@ -24,7 +24,7 @@ function buildResponseSchema(projectPartIds) {
             },
             caution: {
               type: SchemaType.STRING,
-              description: 'A safety-relevant warning if one applies (e.g. voltage mismatch with the Pi\'s 3.3V logic, needs a current-limiting resistor, needs a separate power supply). Empty string if nothing to flag.',
+              description: 'A safety-relevant warning if one applies (e.g. voltage mismatch with the Pi\'s 3.3V logic, needs a current-limiting resistor, needs a separate power supply), ending with a concrete suggested fix — e.g. "...; use a bidirectional logic level shifter between its output and the GPIO pin" rather than just naming the risk. Empty string if nothing to flag.',
             },
           },
           required: ['projectPartId', 'wiringNotes'],
@@ -60,7 +60,7 @@ ${pinMapReference()}
 Project "${project.name}" (board: ${project.boardModel || 'unspecified'}) has these parts assigned:
 ${partsBlock}
 
-For each part with an assigned gpioPin, write clear step-by-step wiring instructions a beginner with no electronics background could follow: which wire/pin on the part connects to which named Pi pin (by physical pin number, using the reference table above — e.g. "physical pin 11"), including power (VCC/+) and ground, not just the signal pin. For i2c/spi parts sharing a bus with other parts already listed, mention that they share the same bus pins. Flag any voltage mismatch against the Pi's 3.3V GPIO logic, or a component that needs a current-limiting resistor or separate power supply, in the "caution" field for that part — leave it as an empty string if there's nothing to flag.`;
+For each part with an assigned gpioPin, write clear step-by-step wiring instructions a beginner with no electronics background could follow: which wire/pin on the part connects to which named Pi pin (by physical pin number, using the reference table above — e.g. "physical pin 11"), including power (VCC/+) and ground, not just the signal pin. For i2c/spi parts sharing a bus with other parts already listed, mention that they share the same bus pins. Flag any voltage mismatch against the Pi's 3.3V GPIO logic, or a component that needs a current-limiting resistor or separate power supply, in the "caution" field for that part — and always end that caution with what to actually do about it (e.g. a specific type of protective component, or checking the part's datasheet for a 3.3V-compatible mode before assuming one is needed). Leave "caution" as an empty string if there's nothing to flag.`;
 }
 
 exports.handler = async (event) => {
