@@ -4,7 +4,7 @@ const { getProjectDetail } = require('../../lib/project');
 const { getGemini, getGroq, SchemaType, generateStructured, describeAIError } = require('../../lib/ai');
 
 const SYSTEM_INSTRUCTION =
-  'You are an electronics project planner. You only ever recommend parts from the exact catalog you are given, by their exact id. You never invent a part, a library, or a price.';
+  'You are an electronics project planner. You only ever recommend parts from the exact catalog you are given, by their exact id. You never invent a part, a library, or a price. Before answering, think through the complete circuit — not just the headline sensor/actuator, but what it needs to actually work: power and ground, any current-limiting or interfacing components, and anything an assigned part\'s voltage would require given the Pi\'s 3.3V logic. If the catalog has a part for that need, include it in your suggestions; if it doesn\'t, name the need plainly in "gaps" instead of inventing a product. Keep your "approach" summary to 2-3 sentences — the thinking should produce a more complete, correct parts list, not a longer essay.';
 
 // Suggests which catalog parts + GPIO pins a described build needs. Part
 // selection is grounded by constraining the response schema's partId to an
@@ -18,7 +18,7 @@ function buildResponseSchema(catalogIds) {
   return {
     type: SchemaType.OBJECT,
     properties: {
-      approach: { type: SchemaType.STRING, description: 'Short summary of how these parts fit together to build what was described.' },
+      approach: { type: SchemaType.STRING, description: 'Concise summary (2-3 sentences max) of how these parts fit together to build what was described. Not a design essay — the detailed reasoning should show up as a more complete suggestions/gaps list, not as extra prose here.' },
       suggestions: {
         type: SchemaType.ARRAY,
         items: {
@@ -37,7 +37,7 @@ function buildResponseSchema(catalogIds) {
       gaps: {
         type: SchemaType.ARRAY,
         items: { type: SchemaType.STRING },
-        description: 'Plain-text notes on capabilities the description needs that no catalog part covers. Do not name a specific product, brand, or price here — just describe the need.',
+        description: 'Plain-text notes on anything needed that no catalog part covers — including a headline sensor/actuator that\'s missing entirely AND a supporting/protective component (e.g. a logic level shifter for a 5V part\'s output) that the build needs but isn\'t in the catalog. Do not name a specific product, brand, or price here — just describe the need.',
       },
     },
     required: ['approach', 'suggestions', 'gaps'],
@@ -54,7 +54,7 @@ function buildPrompt(description, project, catalog) {
     : '(none yet)';
 
   const catalogBlock = catalog
-    .map((p) => `- id: ${p.id}, name: ${p.name}, category: ${p.category}, interface: ${p.interface}, library: ${p.library || 'not set'}, ownedQty: ${p.ownedQty}, requiresAdc: ${p.requiresAdc}`)
+    .map((p) => `- id: ${p.id}, name: ${p.name}, category: ${p.category}, interface: ${p.interface}, voltage: ${p.voltage != null ? p.voltage + 'V' : 'not recorded'}, library: ${p.library || 'not set'}, ownedQty: ${p.ownedQty}, requiresAdc: ${p.requiresAdc}`)
     .join('\n');
 
   return `Board: ${project.boardModel || 'unspecified Raspberry Pi'}
@@ -67,7 +67,7 @@ ${already}
 Full parts catalog — you may ONLY suggest parts by the exact id values listed here, never a part that isn't in this list:
 ${catalogBlock}
 
-Suggest the catalog parts (by id) needed to build what was described, with a GPIO pin for each digital/analog/pwm part (avoid colliding with an already-used dedicated pin) and the shared I2C/SPI/UART bus label for bus-interface parts. If ownedQty is 0 for a part you suggest, say so in your reasoning — the user will need to buy it. If something described isn't covered by any catalog part, add a plain-language note to "gaps" — do not invent a specific product, brand, or price for it.`;
+Suggest the catalog parts (by id) needed to build what was described, with a GPIO pin for each digital/analog/pwm part (avoid colliding with an already-used dedicated pin) and the shared I2C/SPI/UART bus label for bus-interface parts. If ownedQty is 0 for a part you suggest, say so in your reasoning — the user will need to buy it. Also include catalog parts a complete, safe build genuinely needs beyond the headline sensor/actuator — a current-limiting resistor for an LED, an ADC module for an analog part, a breadboard/extension board for assembly — where the catalog has one. If a part you're suggesting runs at 5V and connects to a Pi GPIO pin (3.3V logic), flag that directly in its "reason" field. If something needed — a headline component or a supporting/protective one — isn't covered by any catalog part, add a plain-language note to "gaps" — do not invent a specific product, brand, or price for it.`;
 }
 
 exports.handler = async (event) => {

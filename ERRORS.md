@@ -87,4 +87,12 @@ Format per entry:
 
 ---
 
+## 2026-08-17 — suggest-parts only found protective-part needs after the fact
+**Area:** netlify/functions/suggest-parts.js
+**Context:** Voltage mismatches and missing protective components (level shifters, current-limiting resistors) were only ever surfaced by a separate compat-review/wiring-guide pass run after parts were already assigned — suggest-parts itself didn't reason about the full circuit, just the headline part.
+**Improved:** System instruction and prompt now explicitly ask the model to think through the complete circuit (power, protection, interfacing) before finalizing suggestions — catalog voltage is now included in the prompt so it can actually compare against the Pi's 3.3V logic. Supporting catalog parts (resistors, breadboard, power supply) now get proactively suggested when genuinely needed, and non-catalog fixes (e.g. a level shifter) land in "gaps" instead of only showing up later. "approach" is now capped at 2-3 sentences so the extra reasoning shows up as a smarter list, not more prose to read.
+**Verified:** local test with a 5V PIR sensor description — the voltage mismatch appeared directly in the suggestion's "reason" field, and the missing level shifter appeared in "gaps", both without a separate compat-review call.
+
+---
+
 (no other entries yet)
