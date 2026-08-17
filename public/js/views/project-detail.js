@@ -68,6 +68,15 @@ function renderProjectDetail(root, project, allParts, snippets) {
 
     <div class="panel">
       <div class="row-between">
+        <h2 style="margin:0">Wiring guide</h2>
+        <button id="wiring-guide-btn" class="secondary">Explain wiring</button>
+      </div>
+      <p class="small muted">Plain-language, step-by-step wiring instructions for each assigned part — which wire goes to which physical Pi pin — written straight into the wiring notes below.</p>
+      <div id="wiring-guide-result" class="mt8"></div>
+    </div>
+
+    <div class="panel">
+      <div class="row-between">
         <h2 style="margin:0">Compatibility review</h2>
         <button id="run-compat-review" class="secondary">Run Gemini review</button>
       </div>
@@ -131,7 +140,7 @@ function renderPartsTable(parts) {
               <div class="muted small">${pp.library ? escapeHtml(pp.library) : 'library not set'}</div>
             </td>
             <td><input class="pp-pin" data-pp-id="${pp.id}" value="${escapeHtml(pp.gpioPin || '')}" placeholder="—" style="width:100px" /></td>
-            <td><input class="pp-notes" data-pp-id="${pp.id}" value="${escapeHtml(pp.wiringNotes || '')}" placeholder="—" style="width:100%" /></td>
+            <td><textarea class="pp-notes" data-pp-id="${pp.id}" placeholder="—" rows="2" style="width:100%; min-width:220px">${escapeHtml(pp.wiringNotes || '')}</textarea></td>
             <td>
               <select class="pp-status" data-pp-id="${pp.id}">
                 <option value="owned" ${pp.status === 'owned' ? 'selected' : ''}>owned</option>
@@ -322,6 +331,33 @@ function bindProjectDetailEvents(root, project) {
           await projectDetailView(root, project.id);
         });
       }
+    } catch (err) {
+      out.innerHTML = `<div class="notice err">${escapeHtml(err.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  el('#wiring-guide-btn', root).addEventListener('click', async () => {
+    const btn = el('#wiring-guide-btn', root);
+    const out = el('#wiring-guide-result', root);
+    btn.disabled = true;
+    out.innerHTML = '<p class="muted">Working out the wiring…</p>';
+    try {
+      const { intro, parts } = await api.post('/wiring-guide', { projectId: project.id });
+      const cautions = parts.filter((p) => p.caution);
+      out.innerHTML = `
+        <div class="notice info">${escapeHtml(intro)}</div>
+        ${cautions.map((p) => `<div class="notice warn mt8">${escapeHtml(p.caution)}</div>`).join('')}
+        <p class="small muted mt8">Full step-by-step notes for each part are now in the "Wiring notes" column below.</p>
+      `;
+      // Update the notes textareas in place (matching what the server just
+      // persisted) instead of reloading the whole view, so this summary
+      // stays visible instead of getting wiped by a fresh render.
+      parts.forEach((p) => {
+        const textarea = root.querySelector(`.pp-notes[data-pp-id="${p.projectPartId}"]`);
+        if (textarea) textarea.value = p.caution ? `${p.wiringNotes}\n\nCaution: ${p.caution}` : p.wiringNotes;
+      });
     } catch (err) {
       out.innerHTML = `<div class="notice err">${escapeHtml(err.message)}</div>`;
     } finally {

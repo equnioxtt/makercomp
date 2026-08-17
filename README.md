@@ -37,15 +37,19 @@ Set `GEMINI_API_KEY` (and optionally `GROQ_API_KEY`), `TURSO_DATABASE_URL`, and 
 
 ```
 public/               static frontend (index.html, css/, js/)
-netlify/functions/    API routes (parts, projects, project-parts, to-buy, suggest-parts, generate-code, compat-review, snippets)
-lib/                  shared server code (db client, schema, compatibility rules, AI provider client)
+netlify/functions/    API routes (parts, projects, project-parts, to-buy, suggest-parts, wiring-guide, generate-code, compat-review, snippets)
+lib/                  shared server code (db client, schema, compatibility rules, AI provider client, GPIO pin-map reference)
 db/                   migration + seed scripts, seed data
 ERRORS.md             running log of bugs found and how they were fixed — check before touching an area it covers
 ```
 
 ## Project Assistant
 
-On a project page, type a plain description of what you want to build (e.g. "a motion light that beeps when it detects movement") and click **Suggest parts & pins**. Gemini proposes which catalog parts and GPIO pins the build needs — part selection is schema-constrained to your actual catalog ids, so it can't suggest a part you don't have. Anything the description needs that isn't in your catalog comes back as a plain-text "gap" instead of a fabricated part. Accept suggestions individually or all at once, then use **Generate code** to get Python wired to those exact parts and pins.
+On a project page, type a plain description of what you want to build (e.g. "a motion light that beeps when it detects movement") and click **Suggest parts & pins**. The AI proposes which catalog parts and GPIO pins the build needs — part selection is schema-constrained to your actual catalog ids, so it can't suggest a part you don't have. Anything the description needs that isn't in your catalog comes back as a plain-text "gap" instead of a fabricated part. Accept suggestions individually or all at once.
+
+Once parts have pins assigned, click **Explain wiring** for plain-language, step-by-step instructions per part — which wire goes to which physical Raspberry Pi pin (by pin number, not just the BCM `GPIOxx` name), plus a caution flag for anything like a voltage mismatch with the Pi's 3.3V logic. Physical pin numbers are grounded against a fixed reference table (`lib/pinmap.js`), not left to the AI's memory. Results are written into each part's wiring notes.
+
+Then use **Generate code** to get Python wired to those exact parts and pins.
 
 ## Notes on the seed data
 
